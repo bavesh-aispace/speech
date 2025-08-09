@@ -42,7 +42,7 @@ Open your browser and go to: http://127.0.0.1:5000
 
 
 
-💡 How It Works:
+## 💡 How It Works:
 You type an English sentence.
 
 English TTS → Uses Microsoft Edge TTS to generate English speech.
@@ -58,7 +58,7 @@ All results and audio files are shown on the webpage.
 
 
 
-🖼 Features:
+## 🖼 Features:
 Live log updates using Server-Sent Events (SSE)
 
 Two audio players (English & Telugu output)
