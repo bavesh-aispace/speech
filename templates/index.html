@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Speech Processing</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f4f4f4;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        form {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        label {
+            font-weight: bold;
+        }
+        input[type="text"] {
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 16px;
+        }
+        button {
+            padding: 10px 15px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        .log-output, .result-output {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #e9ecef;
+            border-radius: 4px;
+            white-space: pre-wrap; /* Allows text to wrap and preserves whitespace */
+            word-wrap: break-word; /* Breaks long words if necessary */
+        }
+        .audio-controls {
+            margin-top: 15px;
+        }
+        .audio-controls audio {
+            width: 100%;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Voice Assistant</h1>
+
+        <form id="textInputForm" action="/run" method="POST">
+            <label for="user_text">Enter English Text:</label>
+            <input type="text" id="user_text" name="user_text" placeholder="Type your sentence here..." required>
+            <button type="submit">Process</button>
+        </form>
+
+        <div class="log-output" id="logOutput">
+            <h3>Processing Log:</h3>
+            <p>Waiting for input...</p>
+        </div>
+
+        <div class="result-output" id="resultOutput" style="display: none;">
+            <h3>Results:</h3>
+            <p><strong>English Transcription:</strong> <span id="engTranscription"></span></p>
+            <p><strong>Telugu Translation:</strong> <span id="telTranslation"></span></p>
+        </div>
+
+        <div class="audio-controls">
+            <h3>Generated Audio:</h3>
+            <p>English Audio:</p>
+            <audio id="englishAudio" controls></audio>
+            <p>Telugu Audio:</p>
+            <audio id="teluguAudio" controls></audio>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const form = document.getElementById('textInputForm');
+            const logOutput = document.getElementById('logOutput');
+            const resultOutput = document.getElementById('resultOutput');
+            const engTranscriptionSpan = document.getElementById('engTranscription');
+            const telTranslationSpan = document.getElementById('telTranslation');
+            const englishAudio = document.getElementById('englishAudio');
+            const teluguAudio = document.getElementById('teluguAudio');
+
+            form.addEventListener('submit', async function(event) {
+                event.preventDefault(); // Prevent default form submission
+
+                logOutput.innerHTML = '<h3>Processing Log:</h3><p>Starting pipeline...</p>';
+                resultOutput.style.display = 'none';
+                englishAudio.src = '';
+                teluguAudio.src = '';
+
+                const formData = new FormData(form);
+                const userText = formData.get('user_text');
+
+                // Using fetch for SSE
+                try {
+                    const response = await fetch('/run', {
+                        method: 'POST',
+                        body: formData
+                    });
+
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+
+                    const reader = response.body.getReader();
+                    const decoder = new TextDecoder();
+                    let buffer = '';
+
+                    while (true) {
+                        const { value, done } = await reader.read();
+                        if (done) {
+                            break;
+                        }
+                        buffer += decoder.decode(value, { stream: true });
+
+                        // Process complete lines
+                        let lines = buffer.split('\n\n');
+                        buffer = lines.pop(); // Keep incomplete line in buffer
+
+                        for (const line of lines) {
+                            if (line.startsWith('data:')) {
+                                const message = line.substring(5); // Remove "data:" prefix
+
+                                if (message.startsWith('__RESULT__')) {
+                                    const parts = message.split('::');
+                                    engTranscriptionSpan.textContent = parts[1];
+                                    telTranslationSpan.textContent = parts[2];
+                                    englishAudio.src = 'static/english_input.wav';
+                                    teluguAudio.src = 'static/telugu_output.wav';
+                                    resultOutput.style.display = 'block';
+                                    logOutput.innerHTML += `<p style="color: green;">[INFO] Processing completed.</p>`;
+                                } else {
+                                    logOutput.innerHTML += `<p>${message}</p>`;
+                                }
+                                logOutput.scrollTop = logOutput.scrollHeight; // Auto-scroll
+                            }
+                        }
+                    }
+                } catch (error) {
+                    logOutput.innerHTML += `<p style="color: red;">Error: ${error.message}</p>`;
+                    console.error('Error during SSE fetch:', error);
+                }
+            });
+        });
+    </script>
+</body>
+</html>

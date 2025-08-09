@@ -1,0 +1,8 @@
+flask
+torch
+torchaudio
+soundfile
+edge-tts
+transformers
+IndicTransToolkit
+python-dotenv
